@@ -1,4 +1,4 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+local ESX = exports['es_extended']:getSharedObject()
 
 PropertiesTable = {}
 
@@ -19,41 +19,37 @@ local tabletOffset = vector3(0.03, 0.002, -0.0)
 local tabletRot = vector3(10.0, 160.0, 0.0)
 
 local function doAnimation()
-    if not UIOpen then return end
-    -- Animation
-    RequestAnimDict(tabletDict)
-    while not HasAnimDictLoaded(tabletDict) do Citizen.Wait(100) end
-    -- Model
-    RequestModel(tabletProp)
-    while not HasModelLoaded(tabletProp) do Citizen.Wait(100) end
+	if not UIOpen then return end
+	-- Animation
+	RequestAnimDict(tabletDict)
+	while not HasAnimDictLoaded(tabletDict) do Citizen.Wait(100) end
+	-- Model
+	RequestModel(tabletProp)
+	while not HasModelLoaded(tabletProp) do Citizen.Wait(100) end
 
-    local plyPed = PlayerPedId()
-    tabletObj = CreateObject(tabletProp, 0.0, 0.0, 0.0, true, true, false)
-    local tabletBoneIndex = GetPedBoneIndex(plyPed, tabletBone)
+	local plyPed = PlayerPedId()
+	tabletObj = CreateObject(tabletProp, 0.0, 0.0, 0.0, true, true, false)
+	local tabletBoneIndex = GetPedBoneIndex(plyPed, tabletBone)
 
-    AttachEntityToEntity(tabletObj, plyPed, tabletBoneIndex, tabletOffset.x, tabletOffset.y, tabletOffset.z, tabletRot.x, tabletRot.y, tabletRot.z, true, false, false, false, 2, true)
-    SetModelAsNoLongerNeeded(tabletProp)
+	AttachEntityToEntity(tabletObj, plyPed, tabletBoneIndex, tabletOffset.x, tabletOffset.y, tabletOffset.z, tabletRot.x,
+		tabletRot.y, tabletRot.z, true, false, false, false, 2, true)
+	SetModelAsNoLongerNeeded(tabletProp)
 
-    CreateThread(function()
-        while UIOpen do
-            Wait(0)
-            if not IsEntityPlayingAnim(plyPed, tabletDict, tabletAnim, 3) then
-                TaskPlayAnim(plyPed, tabletDict, tabletAnim, 3.0, 3.0, -1, 49, 0, 0, 0, 0)
-            end
-        end
+	CreateThread(function()
+		while UIOpen do
+			Wait(0)
+			if not IsEntityPlayingAnim(plyPed, tabletDict, tabletAnim, 3) then
+				TaskPlayAnim(plyPed, tabletDict, tabletAnim, 3.0, 3.0, -1, 49, 0, 0, 0, 0)
+			end
+		end
 
 
-        ClearPedSecondaryTask(plyPed)
-        Citizen.Wait(250)
-        DetachEntity(tabletObj, true, false)
-        DeleteEntity(tabletObj)
-    end)
+		ClearPedSecondaryTask(plyPed)
+		Citizen.Wait(250)
+		DetachEntity(tabletObj, true, false)
+		DeleteEntity(tabletObj)
+	end)
 end
-
-RegisterNetEvent('QBCore:Server:UpdateObject', function()
-	if source ~= '' then return false end
-	QBCore = exports['qb-core']:GetCoreObject()
-end)
 
 local function toggleUI(bool)
 	UIOpen = bool
@@ -76,23 +72,23 @@ local function setRealtor(jobInfo)
 	if RealtorJobs[jobInfo.name] then
 		SendNUIMessage({
 			action = "setRealtorGrade",
-			data = jobInfo.grade.level
+			data = jobInfo.grade
 		})
-	else 
+	else
 		SendNUIMessage({
 			action = "setRealtorGrade",
 			data = -1
 		})
 	end
 end
-RegisterNetEvent("QBCore:Client:OnJobUpdate", setRealtor)
+RegisterNetEvent("esx:setJob", setRealtor)
 
-AddEventHandler('QBCore:Client:OnPlayerLoaded', function()
+RegisterNetEvent('esx:onPlayerLoaded', function()
 	SendNUIMessage({
 		action = "setConfig",
 		data = Config.RealtorPerms
 	})
-    local PlayerData = QBCore.Functions.GetPlayerData()
+	local PlayerData = ESX.GetPlayerData()
 	setRealtor(PlayerData.job)
 end)
 
@@ -105,30 +101,28 @@ AddEventHandler("onResourceStart", function(resName)
 			data = Config.RealtorPerms
 		})
 
-		local PlayerData = QBCore.Functions.GetPlayerData()
+		local PlayerData = ESX.GetPlayerData()
 		setRealtor(PlayerData.job)
 	end
 end)
 
 if Config.UseCommand then
 	RegisterCommand("housing", function()
-		local PlayerData = QBCore.Functions.GetPlayerData()
-		if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() then
+		if not IsPauseMenuActive() then
 			toggleUI(not UIOpen)
 		end
 	end, false)
 end
 
 RegisterNetEvent('bl-realtor:client:toggleUI', function()
-	local PlayerData = QBCore.Functions.GetPlayerData()
-    if not PlayerData.metadata["isdead"] and not PlayerData.metadata["inlaststand"] and not PlayerData.metadata["ishandcuffed"] and not IsPauseMenuActive() then
+	if not IsPauseMenuActive() then
 		toggleUI(not UIOpen)
 	end
 end)
 
 -- Callbacks
-RegisterNUICallback("setWaypoint", function (data, cb)
-	lib.notify({ description = 'Waypoint was set!' , type = 'success'})
+RegisterNUICallback("setWaypoint", function(data, cb)
+	lib.notify({ description = 'Waypoint was set!', type = 'success' })
 	SetNewWaypoint(data.x, data.y)
 	cb("ok")
 end)
@@ -143,7 +137,7 @@ RegisterNUICallback("updatePropertyData", function(data, cb)
 		local shellName = currentShells[newData.shell].hash
 
 		if not IsModelInCdimage(shellName) then
-			lib.notify({ description = 'The Interior '..newData.shell..' does not exist!', type = 'error'})
+			lib.notify({ description = 'The Interior ' .. newData.shell .. ' does not exist!', type = 'error' })
 			return
 		end
 	end
@@ -159,12 +153,12 @@ end)
 
 RegisterNUICallback("getNames", function(data, cb)
 	if not data then return end
-	local names = lib.callback.await("bl-realtor:server:getNames",source, data)
+	local names = lib.callback.await("bl-realtor:server:getNames", source, data)
 	cb(names)
 end)
 
-RegisterNUICallback("startZonePlacement", function (data, cb)
-	 cb(1)
+RegisterNUICallback("startZonePlacement", function(data, cb)
+	cb(1)
 	SetNuiFocus(false, false)
 
 	local type = data.type
@@ -199,19 +193,19 @@ RegisterNUICallback("startZonePlacement", function (data, cb)
 	local region = GetLabelText(regionHash)
 
 	if type == "UpdateGarage" then
-    local data = {
-        garage = newData,
-        street = street,
-        region = region,
-    }
-    TriggerServerEvent("bl-realtor:server:updateProperty", type, property_id, data)
+		local data = {
+			garage = newData,
+			street = street,
+			region = region,
+		}
+		TriggerServerEvent("bl-realtor:server:updateProperty", type, property_id, data)
 	else
-    local data = {
-        door = newData,
-        street = street,
-        region = region,
-    }
-    TriggerServerEvent("bl-realtor:server:updateProperty", type, property_id, data)
+		local data = {
+			door = newData,
+			street = street,
+			region = region,
+		}
+		TriggerServerEvent("bl-realtor:server:updateProperty", type, property_id, data)
 	end
 end)
 
@@ -230,12 +224,12 @@ function ZoneThread(type, promise)
 
 	-- default for door
 	local length = 2.0
-    local width = 1.0
-    local zoff = 2.0
-    local height = 2.5
+	local width = 1.0
+	local zoff = 2.0
+	local height = 2.5
 
 	if type == "garage" then
-		lib.notify({description="Best to get in a vehicle to see how the zone would look.", type="error"})
+		lib.notify({ description = "Best to get in a vehicle to see how the zone would look.", type = "error" })
 
 		length = 3.0
 		width = 5.0
@@ -249,7 +243,8 @@ function ZoneThread(type, promise)
 			local y = coords.y
 			local z = coords.z
 			local heading = GetEntityHeading(cache.ped)
-			DrawMarker(43, x, y, z + zoff, 0.0, 0.0, 0.0, 0.0, 180.0, -heading, length, width, height, 255, 0, 0, 50, false, false, 2, nil, nil, false)	
+			DrawMarker(43, x, y, z + zoff, 0.0, 0.0, 0.0, 0.0, 180.0, -heading, length, width, height, 255, 0, 0, 50,
+				false, false, 2, nil, nil, false)
 			if IsDisabledControlJustPressed(0, 38) then -- E
 				findingZone = false
 				setHide(false)
@@ -269,19 +264,19 @@ function ZoneThread(type, promise)
 			Wait(0)
 			DisableControlAction(0, 199, true) -- P
 			DisableControlAction(0, 200, true) -- ESC
-			DisableControlAction(0, 104, true) -- H 
+			DisableControlAction(0, 104, true) -- H
 		end
 	end)
 end
 
-RegisterNUICallback("getBlipBooleans", function (_, cb)
+RegisterNUICallback("getBlipBooleans", function(_, cb)
 	cb({
 		showBlipsForSale = showBlipsForSale,
 		showBlipsOwned = showBlipsOwned,
 	})
 end)
 
-RegisterNUICallback("showBlipsForSale", function (bool, cb)
+RegisterNUICallback("showBlipsForSale", function(bool, cb)
 	if bool then
 		showBlipsForSale = true
 		CreateBlipsOnMap("forSale")
@@ -292,7 +287,7 @@ RegisterNUICallback("showBlipsForSale", function (bool, cb)
 	cb(1)
 end)
 
-RegisterNUICallback("showBlipsOwned", function (bool, cb)
+RegisterNUICallback("showBlipsOwned", function(bool, cb)
 	if bool then
 		showBlipsOwned = true
 		CreateBlipsOnMap("owned")
@@ -315,7 +310,7 @@ function CreateBlipsOnMap(type)
 			local owner = data.owner
 
 			local coords = data.door_data
-			local blipName = '('..nameType..')' .. ' ' .. data.street .. ' ' .. data.property_id
+			local blipName = '(' .. nameType .. ')' .. ' ' .. data.street .. ' ' .. data.property_id
 			if type == "forSale" and isForSale then
 				local blip = CreateBlip(coords, blipName)
 				blipsTable[#blipsTable + 1] = blip

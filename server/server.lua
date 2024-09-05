@@ -1,15 +1,19 @@
-local QBCore = exports['qb-core']:GetCoreObject()
+local ESX = exports['es_extended']:getSharedObject()
 
-RegisterNetEvent('QBCore:Server:UpdateObject', function()
-	if source ~= '' then return false end
-	QBCore = exports['qb-core']:GetCoreObject() 
-end)
+local function GetOfflinePlayerName(identifier)
+    local user = MySQL.query.await("SELECT firstname, lastname FROM users WHERE identifier = ?", { identifier })
+
+    if user and user[1] then
+        return user[1].firstname .. ' ' .. user[1].lastname
+    else
+        return "Unknown"
+    end
+end
 
 RegisterNetEvent("bl-realtor:server:updateProperty", function(type, property_id, data)
     -- Job check
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    local PlayerData = Player.PlayerData
+    local PlayerData = ESX.GetPlayerFromId(src)
     if not RealtorJobs[PlayerData.job.name] then return false end
 
     data.realtorSrc = src
@@ -20,8 +24,7 @@ end)
 RegisterNetEvent("bl-realtor:server:registerProperty", function(data)
     -- Job check
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    local PlayerData = Player.PlayerData
+    local PlayerData = ESX.GetPlayerFromId(src)
     if not RealtorJobs[PlayerData.job.name] then return false end
 
     data.realtorSrc = src
@@ -32,8 +35,7 @@ end)
 RegisterNetEvent("bl-realtor:server:addTenantToApartment", function(data)
     -- Job check
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    local PlayerData = Player.PlayerData
+    local PlayerData = ESX.GetPlayerFromId(src)
     if not RealtorJobs[PlayerData.job.name] then return false end
 
     data.realtorSrc = src
@@ -41,31 +43,27 @@ RegisterNetEvent("bl-realtor:server:addTenantToApartment", function(data)
     TriggerEvent("ps-housing:server:addTenantToApartment", data)
 end)
 
-lib.callback.register("bl-realtor:server:getNames", function (source, data)
+lib.callback.register("bl-realtor:server:getNames", function(source, data)
     local src = source
-    local Player = QBCore.Functions.GetPlayer(src)
-    local PlayerData = Player.PlayerData
+    local PlayerData = ESX.GetPlayerFromId(src)
     if not RealtorJobs[PlayerData.job.name] then return false end
-    
+
     local names = {}
     for i = 1, #data do
-        local target = QBCore.Functions.GetPlayerByCitizenId(data[i]) or QBCore.Functions.GetOfflinePlayerByCitizenId(data[i])
+        local target = ESX.GetPlayerFromIdentifier(data[i]) or GetOfflinePlayerName(data[i])
         if target then
-            names[#names+1] = target.PlayerData.charinfo.firstname .. " " .. target.PlayerData.charinfo.lastname
+            names[#names + 1] = target.PlayerData.charinfo.firstname .. " " .. target.PlayerData.charinfo.lastname
         else
-            names[#names+1] = "Unknown"
+            names[#names + 1] = "Unknown"
         end
     end
-    
+
     return names
 end)
 
 if Config.UseItem then
-    QBCore.Functions.CreateUseableItem(Config.ItemName, function(source, item)
+    ESX.RegisterUsableItem(Config.ItemName, function(source)
         local src = source
-        local Player = QBCore.Functions.GetPlayer(src)
-        if Player.Functions.GetItemByName(item.name) ~= nil then
-            TriggerClientEvent("bl-realtor:client:toggleUI", src)
-        end
+        TriggerClientEvent("bl-realtor:client:toggleUI", src)
     end)
 end
